@@ -44,8 +44,8 @@ constraining_dictionaryFile = 'D:/data science/Blackcoffer project/constraining_
 def rawdata_extract(path, cikListFile):
     html_regex = re.compile(r'<.*?>')
     extraxted_data=[]
-    
-    
+
+
     cikListFile = pd.read_csv(cikListFile)
     for index, row in cikListFile.iterrows():
         processingFile=row['SECFNAME'].split('/')
@@ -61,36 +61,45 @@ def rawdata_extract(path, cikListFile):
             dirFileName = filenameopen.split('\\')
             currentFile=dirFileName[1]
 
-            if os.path.isfile(filenameopen) and currentFile == inputFile :
-                resultdict = dict()
-                resultdict['CIK'] = cik
-                resultdict['CONAME'] = coname
-                resultdict['FYRMO'] = fyrmo
-                resultdict['FDATE'] = fdate
-                resultdict['FORM'] = form
-                resultdict['SECFNAME'] = secfname
-                
+            if os.path.isfile(filenameopen) and currentFile == inputFile:
+                resultdict = {
+                    'CIK': cik,
+                    'CONAME': coname,
+                    'FYRMO': fyrmo,
+                    'FDATE': fdate,
+                    'FORM': form,
+                    'SECFNAME': secfname,
+                }
                 with open(filenameopen, 'r', encoding='utf-8', errors="replace") as in_file:
                     content = in_file.read()
                     content = re.sub(html_regex,'',content)
                     content = content.replace('&nbsp;','')
                     content = re.sub(r'&#\d+;', '', content)
-                    matches_mda = re.findall(mda_regex, content, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                    if matches_mda:
+                    if matches_mda := re.findall(
+                        mda_regex,
+                        content,
+                        re.IGNORECASE | re.DOTALL | re.MULTILINE,
+                    ):
                         result = max(matches_mda, key=len)
                         result = str(result).replace('\n', '')
                         resultdict['mda_extract'] = result
                     else:
                         resultdict['mda_extract'] = ""
-                    match_qqd = re.findall(qqd_regex, content, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                    if match_qqd:
+                    if match_qqd := re.findall(
+                        qqd_regex,
+                        content,
+                        re.IGNORECASE | re.DOTALL | re.MULTILINE,
+                    ):
                         result_qqd = max(match_qqd, key=len)
                         result_qqd = str(result_qqd).replace('\n','')
                         resultdict['qqd_extract']= result_qqd
                     else:
                         resultdict['qqd_extract'] = ""
-                    match_riskfactor = re.findall(riskfactor_regex, content, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                    if match_riskfactor:
+                    if match_riskfactor := re.findall(
+                        riskfactor_regex,
+                        content,
+                        re.IGNORECASE | re.DOTALL | re.MULTILINE,
+                    ):
                         result_riskfactor = max(match_riskfactor, key=len)
                         result_riskfactor = str(result_riskfactor).replace('\n', '')
                         resultdict['riskfactor_extract'] = result_riskfactor
@@ -126,8 +135,7 @@ def tokenizer(text):
     text = text.lower()
     tokenizer = RegexpTokenizer(r'\w+')
     tokens = tokenizer.tokenize(text)
-    filtered_words = list(filter(lambda token: token not in stopWordList, tokens))
-    return filtered_words
+    return list(filter(lambda token: token not in stopWordList, tokens))
 
 
 # In[19]:
@@ -153,14 +161,8 @@ negativeWordList=negativeword.split('\n')
 
 # Calculating positive score 
 def positive_score(text):
-    numPosWords = 0
     rawToken = tokenizer(text)
-    for word in rawToken:
-        if word in positiveWordList:
-            numPosWords  += 1
-    
-    sumPos = numPosWords
-    return sumPos
+    return sum(1 for word in rawToken if word in positiveWordList)
 
 
 # In[22]:
@@ -168,14 +170,10 @@ def positive_score(text):
 
 # Calculating Negative score
 def negative_word(text):
-    numNegWords=0
     rawToken = tokenizer(text)
-    for word in rawToken:
-        if word in negativeWordList:
-            numNegWords -=1
-    sumNeg = numNegWords 
-    sumNeg = sumNeg * -1
-    return sumNeg
+    numNegWords = 0 - sum(1 for word in rawToken if word in negativeWordList)
+    sumNeg = numNegWords
+    return sumNeg * -1
 
 
 # In[23]:
@@ -183,8 +181,9 @@ def negative_word(text):
 
 # Calculating polarity score
 def polarity_score(positiveScore, negativeScore):
-    pol_score = (positiveScore - negativeScore) / ((positiveScore + negativeScore) + 0.000001)
-    return pol_score
+    return (positiveScore - negativeScore) / (
+        (positiveScore + negativeScore) + 0.000001
+    )
 
 
 # # Section 2 -Analysis of Readability -  Average Sentence Length, percentage of complex words, fog index
@@ -198,14 +197,10 @@ def polarity_score(positiveScore, negativeScore):
 def average_sentence_length(text):
     sentence_list = sent_tokenize(text)
     tokens = tokenizer(text)
-    totalWordCount = len(tokens)
     totalSentences = len(sentence_list)
-    average_sent = 0
-    if totalSentences != 0:
-        average_sent = totalWordCount / totalSentences
-    
+    average_sent = len(tokens) / totalSentences if totalSentences != 0 else 0
     average_sent_length= average_sent
-    
+
     return round(average_sent_length)
 
 
@@ -218,22 +213,12 @@ def average_sentence_length(text):
 def percentage_complex_word(text):
     tokens = tokenizer(text)
     complexWord = 0
-    complex_word_percentage = 0
-    
     for word in tokens:
-        vowels=0
-        if word.endswith(('es','ed')):
-            pass
-        else:
-            for w in word:
-                if(w=='a' or w=='e' or w=='i' or w=='o' or w=='u'):
-                    vowels += 1
+        if not word.endswith(('es', 'ed')):
+            vowels = sum(1 for w in word if w in ['a', 'e', 'i', 'o', 'u'])
             if(vowels > 2):
                 complexWord += 1
-    if len(tokens) != 0:
-        complex_word_percentage = complexWord/len(tokens)
-    
-    return complex_word_percentage
+    return complexWord/len(tokens) if len(tokens) != 0 else 0
                         
 
 
@@ -244,8 +229,7 @@ def percentage_complex_word(text):
 # Fog index is calculated using -- Fog Index = 0.4 * (Average Sentence Length + Percentage of Complex words)
 
 def fog_index(averageSentenceLength, percentageComplexWord):
-    fogIndex = 0.4 * (averageSentenceLength + percentageComplexWord)
-    return fogIndex
+    return 0.4 * (averageSentenceLength + percentageComplexWord)
 
 
 # # Section 4: Complex word count
@@ -257,15 +241,10 @@ def fog_index(averageSentenceLength, percentageComplexWord):
 def complex_word_count(text):
     tokens = tokenizer(text)
     complexWord = 0
-    
+
     for word in tokens:
-        vowels=0
-        if word.endswith(('es','ed')):
-            pass
-        else:
-            for w in word:
-                if(w=='a' or w=='e' or w=='i' or w=='o' or w=='u'):
-                    vowels += 1
+        if not word.endswith(('es', 'ed')):
+            vowels = sum(1 for w in word if w in ['a', 'e', 'i', 'o', 'u'])
             if(vowels > 2):
                 complexWord += 1
     return complexWord
@@ -292,14 +271,8 @@ with open(uncertainty_dictionaryFile ,'r') as uncertain_dict:
 uncertainDictionary = uncertainDict.split('\n')
 
 def uncertainty_score(text):
-    uncertainWordnum =0
     rawToken = tokenizer(text)
-    for word in rawToken:
-        if word in uncertainDictionary:
-            uncertainWordnum +=1
-    sumUncertainityScore = uncertainWordnum 
-    
-    return sumUncertainityScore
+    return sum(1 for word in rawToken if word in uncertainDictionary)
 
 
 
@@ -312,14 +285,8 @@ with open(constraining_dictionaryFile ,'r') as constraining_dict:
 constrainDictionary = constrainDict.split('\n')
 
 def constraining_score(text):
-    constrainWordnum =0
     rawToken = tokenizer(text)
-    for word in rawToken:
-        if word in constrainDictionary:
-            constrainWordnum +=1
-    sumConstrainScore = constrainWordnum 
-    
-    return sumConstrainScore
+    return sum(1 for word in rawToken if word in constrainDictionary)
 
 
 
@@ -329,11 +296,7 @@ def constraining_score(text):
 # Calculating positive word proportion
 
 def positive_word_prop(positiveScore,wordcount):
-    positive_word_proportion = 0
-    if wordcount !=0:
-        positive_word_proportion = positiveScore / wordcount
-        
-    return positive_word_proportion
+    return positiveScore / wordcount if wordcount !=0 else 0
 
 
 # In[32]:
@@ -342,11 +305,7 @@ def positive_word_prop(positiveScore,wordcount):
 # Calculating negative word proportion
 
 def negative_word_prop(negativeScore,wordcount):
-    negative_word_proportion = 0
-    if wordcount !=0:
-        negative_word_proportion = negativeScore / wordcount
-        
-    return negative_word_proportion
+    return negativeScore / wordcount if wordcount !=0 else 0
 
 
 # In[33]:
@@ -355,11 +314,7 @@ def negative_word_prop(negativeScore,wordcount):
 # Calculating uncertain word proportion
 
 def uncertain_word_prop(uncertainScore,wordcount):
-    uncertain_word_proportion = 0
-    if wordcount !=0:
-        uncertain_word_proportion = uncertainScore / wordcount
-        
-    return uncertain_word_proportion
+    return uncertainScore / wordcount if wordcount !=0 else 0
 
 
 # In[34]:
@@ -368,11 +323,7 @@ def uncertain_word_prop(uncertainScore,wordcount):
 # Calculating constraining word proportion
 
 def constraining_word_prop(constrainingScore,wordcount):
-    constraining_word_proportion = 0
-    if wordcount !=0:
-        constraining_word_proportion = constrainingScore / wordcount
-        
-    return constraining_word_proportion
+    return constrainingScore / wordcount if wordcount !=0 else 0
 
 
 # In[35]:
@@ -382,14 +333,8 @@ def constraining_word_prop(constrainingScore,wordcount):
 
 def constrain_word_whole(mdaText,qqdmrText,rfText):
     wholeDoc = mdaText + qqdmrText + rfText
-    constrainWordnumWhole =0
     rawToken = tokenizer(wholeDoc)
-    for word in rawToken:
-        if word in constrainDictionary:
-            constrainWordnumWhole +=1
-    sumConstrainScoreWhole = constrainWordnumWhole 
-    
-    return sumConstrainScoreWhole
+    return sum(1 for word in rawToken if word in constrainDictionary)
 
 
 # In[36]:
